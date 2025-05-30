@@ -1,0 +1,293 @@
+----------------------------------------------------------------------
+学籍番号: 202301330
+名前: 長田 悠生
+課題番号：1
+練習問題番号：106
+題名：バブルソートとクイックソートの比較
+
+[概要]
+バブルソートとクイックソートの比較を行なう。
+比較項目は、比較回数と交換回数とする。
+バブルソートの実装については、講義資料のプログラムに追記したプログラムである。
+
+[環境]
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20241116
+
+以下のshell.nixの環境で課題に取り組んだ。
+
+```nix
+{
+  pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-25.05") { },
+}:
+
+pkgs.mkShell {
+  buildInputs = with pkgs; [
+    gcc
+    gnumake
+  ];
+}
+```
+
+[実行結果]
+以下、バブルソートとクイックソートの結果を示す。
+
+バブルソートの結果
+```sh
+$ gcc -g bubble.c
+$ ./a.out
+0:  8 12  3 15  7  4
+        [0]=8 > [1]=12
+        [1]=12 > [2]=3 ... swap!!
+        [2]=12 > [3]=15
+        [3]=15 > [4]=7 ... swap!!
+        [4]=15 > [5]=4 ... swap!!
+1:  8  3 12  7  4 15
+        [0]=8 > [1]=3 ... swap!!
+        [1]=8 > [2]=12
+        [2]=12 > [3]=7 ... swap!!
+        [3]=12 > [4]=4 ... swap!!
+2:  3  8  7  4 12 15
+        [0]=3 > [1]=8
+        [1]=8 > [2]=7 ... swap!!
+        [2]=8 > [3]=4 ... swap!!
+3:  3  7  4  8 12 15
+        [0]=3 > [1]=7
+        [1]=7 > [2]=4 ... swap!!
+4:  3  4  7  8 12 15
+        [0]=3 > [1]=4
+-----bubble sort result-----
+ 3  4  7  8 12 15
+compare times: 15
+swap times: 9
+```
+
+クイックソートの結果
+```sh
+$ gcc -g quick.c
+$ ./a.out
+        [0] =  8 >=  3 && [2] =  3 <=  3 ... swap!!
+        [1] = 12 >=  3 && [0] =  3 <=  3 ... crossed!! (i > j)
+1:  3 12  8 15  7  4
+lower:
+pivot:  3
+upper: 12  8 15  7  4
+        [3] = 15 >= 15 && [5] =  4 <= 15 ... swap!!
+        [5] = 15 >= 15 && [4] =  7 <= 15 ... crossed!! (i > j)
+2:  3 12  8  4  7 15
+lower:  3 12  8  4  7
+pivot: 15
+upper:
+        [1] = 12 >=  8 && [4] =  7 <=  8 ... swap!!
+        [2] =  8 >=  8 && [3] =  4 <=  8 ... swap!!
+3:  3  7  4  8 12 15
+lower:  3  7  4
+pivot:  8
+upper: 12 15
+        [1] =  7 >=  7 && [2] =  4 <=  7 ... swap!!
+4:  3  4  7  8 12 15
+lower:  3  4
+pivot:  7
+upper:  8 12 15
+        [3] =  8 >=  8 && [3] =  8 <=  8 ... swap!!
+5:  3  4  7  8 12 15
+lower:  3  4  7
+pivot:  8
+upper: 12 15
+-----quick sort result-----
+ 3  4  7  8 12 15
+compare times: 8
+swap times: 6
+```
+
+[考察]
+バブルソートは、隣接する要素を比較して順序が逆であれば交換するという単純なアルゴリズムである。
+クイックソートは、ピボットを基準にして要素を分割し、再帰的にソートするアルゴリズムである。
+バブルソートは比較回数が多く、交換回数も多いのに対して、クイックソートは比較回数と交換回数が少ないことが結果からわかる。
+クイックソートは、pivotに毎回最小と最大を選んだ場合、最悪計算量はO(n^2)となるが、平均的にはO(n log n)となる。
+しかし、バブルソートは常にO(n^2)の計算量である。
+このことは、結果からも明らかである。
+
+[プログラム]
+以下、バブルソートとクイックソートのプログラムを示す。
+
+バブルソートのプログラム
+ほとんど、講義資料のプログラムそのままなので、プログラムの説明は省く。
+```c
+#include <stdio.h>
+
+#define SAMPLE_COUNT 6
+int sample[SAMPLE_COUNT] = {8, 12, 3, 15, 7, 4};
+int compare_count = 0;
+int swap_count = 0;
+
+void print_data(int a[], int count) {
+    int i;
+    for (i = 0; i < count; i++) {
+        printf("%2d ", a[i]);
+    }
+    printf("\n");
+}
+
+void swap_array(int a[], int i, int j) {
+    int tmp;
+    tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+}
+
+void bubble_sort(int data[], int count) {
+    int i, j;
+    int n = count - 1;
+    for (i = 0; i < n; i++) {
+        printf("%d: ", i);
+        print_data(data, count);
+        for (j = 0; j < n - i; j++) {
+            compare_count++;
+            printf("\t[%d]=%d > [%d]=%d", j, data[j], j + 1, data[j + 1]);
+            if (data[j] > data[j + 1]) {
+                printf(" ... swap!!");
+                swap_array(data, j, j + 1);
+                swap_count++;
+            }
+            printf("\n");
+        }
+    }
+}
+
+int main(void) {
+    bubble_sort(sample, SAMPLE_COUNT);
+    printf("-----bubble sort result-----\n");
+    print_data(sample, SAMPLE_COUNT);
+    printf("compare times: %d\n", compare_count);
+    printf("swap times: %d\n", swap_count);
+    return 0;
+}
+```
+
+クイックソートのプログラム
+
+配列の中心をピボットとして、ピボットを基準にして要素を分割し、再帰的にソートするアルゴリズムを記述した。
+左側ではpivotより大きい値が出るまでiを進め、右側ではpivotより小さい値が出るまでjを戻す。
+そして、互いの値を交換することで、pivotより小さい値を左側に大きい値を右側に移動させる。
+そして、iとjが交差するまで繰り返し、iとjが交差したら、pivotを基準にして左側と右側に分割する。
+これを再帰的に行うことで、クイックソートを実現している。
+```c
+#include <stdio.h>
+
+#define SAMPLE_COUNT 6
+int sample[SAMPLE_COUNT] = {8, 12, 3, 15, 7, 4};
+int recursive_count = 0;
+int compare_count = 0;
+int swap_count = 0;
+
+void print_data(int a[], int count) {
+    int i;
+    for (i = 0; i < count; i++) {
+        printf("%2d ", a[i]);
+    }
+    printf("\n");
+}
+
+void swap_array(int a[], int i, int j) {
+    int tmp;
+    tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+}
+
+int quick_sort(int a[], int upper, int lower) {
+    int pivot, pivot_index, tmp, i, j;
+
+    i = upper;
+    j = lower;
+    // upperとlowerの中間をpivotとする
+    pivot = a[(upper + lower) / 2];
+    pivot_index = (upper + lower) / 2;
+    // iとjが交差するまで繰り返す
+    while (i <= j) {
+        // pivotより小さい値を左側に、pivotより大きい値を右側に移動する
+        // 左側ではpivotより大きい値が出るまでiを進める
+        while ( a[i] < pivot ) {
+            i++;
+            compare_count++;
+        }
+        // 右側ではpivotより小さい値が出るまでjを戻す
+        while ( a[j] > pivot ) {
+            j--;
+            compare_count++;
+        }
+        printf("\t[%d] = %2d >= %2d && [%d] = %2d <= %2d", i, a[i], pivot, j, a[j], pivot);
+        if (i <= j) {
+            printf(" ... swap!!");
+            swap_array(a, i, j);
+            i++;
+            j--;
+            swap_count++;
+        } else {
+            printf(" ... crossed!! (i > j)");
+        }
+        printf("\n");
+    }
+    //* print result area *//
+    recursive_count++;
+    printf("%d: ", recursive_count);
+    print_data(a, SAMPLE_COUNT);
+    // lower
+    if (a[0] == pivot) {
+        printf("lower:\n");
+    }
+    else {
+        printf("lower: ");
+        for (int k = 0; k < (i - 1); k++) {
+            printf("%2d ", a[k]);
+        }
+        if (a[i - 1] == pivot) {
+            printf("\n");
+        } else {
+            printf("%2d\n", a[i - 1]);
+        }
+    }
+    // pivot
+    printf("pivot: %2d\n", pivot);
+    //upper
+    if (a[j + 1] == pivot) {
+        printf("upper: ");
+        for (int k = j + 2; k < (SAMPLE_COUNT - 1); k++) {
+            printf("%2d ", a[k]);
+        }
+        if (a[SAMPLE_COUNT - 1] == pivot) {
+            printf("\n");
+        } else {
+            printf("%2d\n", a[SAMPLE_COUNT - 1]);
+        }
+    } else {
+        printf("upper: ");
+        for (int k = j + 1; k < (SAMPLE_COUNT - 1); k++) {
+            printf("%2d ", a[k]);
+        }
+        printf("%2d\n", a[SAMPLE_COUNT - 1]);
+    }
+    //* print result area *//
+
+    if ( upper < j ) quick_sort(a, upper, j);
+    if ( i < lower ) quick_sort(a, i, lower);
+}
+
+int quick_sort_wapper(int data[], int count) {
+    quick_sort(data, 0, count - 1);
+}
+
+int main(void) {
+    quick_sort_wapper(sample, SAMPLE_COUNT);
+    printf("-----quick sort result-----\n");
+    print_data(sample, SAMPLE_COUNT);
+    printf("compare times: %d\n", compare_count);
+    printf("swap times: %d\n", swap_count);
+    return 0;
+}
+```
+
+----------------------------------------------------------------------
