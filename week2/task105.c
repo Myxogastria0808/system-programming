@@ -58,6 +58,47 @@ int main(void) {
         }
     }
 
+    //* check is same process *//
+    // check strlcpy and my_strlcpy
+    char test_buffer1[15];
+    char test_buffer2[17];
+    char *test_s1 = "Hello, World!";
+    char *test_s2 = "Hello, TSUKUBA!";
+    strlcpy(test_buffer1, test_s1, 15);
+    my_strlcpy(test_buffer2, test_s2, 17);
+    if (strcmp(test_buffer1, test_s1) != 0) {
+        fprintf(stderr, "strlcpy and my_strlcpy output same result\n");
+        exit(1);
+    }
+    if (strcmp(test_buffer2, test_s2) != 0) {
+        fprintf(stderr, "strlcpy and my_strlcpy output same result\n");
+        exit(1);
+    }
+    printf("strlcpy and my_strlcpy output same result\n");
+
+    // check strdup and my_strdup
+    char *test_buffer3 = strdup(test_s1);
+    if (test_buffer3 == NULL) {
+        fprintf(stderr, "malloc failed");
+        exit(1);
+    }
+    char *test_buffer4 = my_strdup(test_s2);
+    if (test_buffer4 == NULL) {
+        fprintf(stderr, "malloc failed");
+        exit(1);
+    }
+    if (strcmp(test_buffer3, test_s1) != 0) {
+        fprintf(stderr, "strdup and my_strdup output same result\n");
+        exit(1);
+    }
+    if (strcmp(test_buffer4, test_s2) != 0) {
+        fprintf(stderr, "strdup and my_strdup output same result\n");
+        exit(1);
+    }
+    printf("strldup and my_strdup output same result\n");
+    free(test_buffer3);
+    free(test_buffer4);
+
     //* main process of strlcpy *//
     clock_t start_strlcpy_time, end_strlcpy_time;
     // start time
