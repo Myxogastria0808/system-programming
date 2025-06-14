@@ -1,12 +1,13 @@
 ---
 
-学籍番号: 202301330
+学籍番号: 202310330
 名前: 長田 悠生
 課題番号：3
 練習問題番号：301, 302
 題名：ファイル操作
 
 [環境]
+
 OSの環境等は以下の通りである。
 
 OS: NixOS 25.05 (Warbler) x86_64
@@ -29,31 +30,1075 @@ pkgs.mkShell {
 
 [練習問題301 概要]
 
+`src`というファイルを生成し、そこから`dst`というファイルにコピーする処理を行う。
+その際、1文字ずつコピーする方法と、Nバイトずつコピーする方法を比較し、
+各処理に要した時間を計測する。
+
 [練習問題301 実行結果]
 
+各処理に要した時間と、`src`と`dst`の内容が同じかを確認する結果を出力している。
+ただし、自由に決めるバイト数は、1から100までの整数を1024倍した値で指定し、
+1から100までの整数について、10の倍数の時にのみ出力している。
+
 ```sh
+$ gcc -Wall main.c
+$ ./a.out
+Per 1 character
+Elapsed time: 0.110193 seconds
+Check is same: OK
+Per 1 BUFSIZ (8192)
+Elapsed time: 0.000136 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 10240 character
+Elapsed time: 0.000068 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 20480 character
+Elapsed time: 0.000068 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 30720 character
+Elapsed time: 0.000091 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 40960 character
+Elapsed time: 0.000089 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 51200 character
+Elapsed time: 0.000082 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 61440 character
+Elapsed time: 0.000058 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 71680 character
+Elapsed time: 0.000057 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 81920 character
+Elapsed time: 0.000056 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 92160 character
+Elapsed time: 0.000061 seconds
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Check is same: OK
+Per 102400 character
+Elapsed time: 0.000069 seconds
+
 ```
 
 [練習問題301 考察]
 
+一文字ずつコピーする方法に比べて、Nバイトずつコピーする方法の方が圧倒的に速いことがわかる。
+また、BUFSIZ（8192バイト）よりも大きいバイト数 (10240バイト以上) だと、
+BUFSIZに比べて約2倍の速度でコピーできることがわかる。
+ただ、ある程度のバイト数を超えると、速度の向上は見られないこともわかった。
+
 [練習問題301 プログラム]
 
+- FILE_SIZEのファイルを生成する関数
+
+FILE_SIZEが65536バイト、DUMMY_CHARが'0'の`src`というファイルを生成する。
 
 ```c
+#define FILE_SIZE 65536  // 64KB
+#define DUMMY_CHAR '0'
+
+int gen_file() {
+    FILE *file;
+    // create src
+    file = fopen("src", "w");
+    if (file == NULL) {
+        fprintf(stderr, "fopen: file: ");
+        fclose(file);
+        exit(1);
+    }
+    // write 65536 bytes of '0' to src
+    for (int i = 0; i < FILE_SIZE; i++) {
+        fputc(DUMMY_CHAR, file);
+    }
+    // close file
+    fclose(file);
+
+    return 0;
+}
+```
+
+- 1文字ずつコピーする関数
+
+`src`から`dst`に1文字ずつコピーする。
+
+```c
+int copy_char() {
+    char c;
+    int fps, fpd;
+    int count;
+    fps = open("src", O_RDONLY);
+    if (fps < 0) {
+        perror("open: src");
+        exit(1);
+    }
+    fpd = open("dst", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror("open: dst");
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+    while ((count = read(fps, &c, 1)) > 0) {
+        if (write(fpd, &c, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            exit(1);
+        }
+    }
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+    close(fpd);
+    close(fps);
+
+    return 0;
+}
+```
+
+- `src`から`dst`にnバイトずつコピーする関数
+
+`src`から`dst`にNバイトずつコピーする。nは引数で指定する。
+
+```c
+int copy_n(int n) {
+    char *str[n];
+    int fps, fpd;
+    int count;
+
+    fps = open("src", O_RDONLY);
+    if (fps < 0) {
+        perror("open: src");
+        exit(EXIT_FAILURE);
+    }
+
+    fpd = open("dst", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror("open: dst");
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+
+    while ((count = read(fps, &str, n)) > 0) {
+        if (write(fpd, &str, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            fprintf(stderr, "Check is same: Failed\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+
+    close(fpd);
+    close(fps);
+
+    fprintf(stdout, "Check is same: OK\n");
+
+    return 0;
+}
+```
+
+- `src`と`dst`が同じかを確認する関数
+
+`src`と`dst`の内容が同じかを確認する。異なる場合は異常終了する。
+
+```c
+int is_same_checker() {
+    FILE *src, *dst;
+    int src_char, dst_char;
+
+    src = fopen("src", "r");
+    if (src == NULL) {
+        perror("fopen: src");
+        return 1;
+    }
+
+    dst = fopen("dst", "r");
+    if (dst == NULL) {
+        perror("fopen: dst");
+        fclose(src);
+        return 1;
+    }
+
+    while ((src_char = fgetc(src)) != EOF && (dst_char = fgetc(dst)) != EOF) {
+        if (src_char != dst_char) {
+            fclose(src);
+            fclose(dst);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(src);
+    fclose(dst);
+
+    return 0;
+}
+```
+
+- main.cのプログラムの全体
+
+gettimeofday関数を利用して、各コピー処理の実行時間を計測した。
+自由に決めるバイト数は、`i * 1024 (iは1から100までの整数)`で指定し、
+1バイトずつ、BUFSIZ（8192バイト）ずつ、Nバイトずつコピーする処理をそれぞれ計測した。
+
+```c
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#define FILE_SIZE 65536  // 64KB
+#define DUMMY_CHAR '0'
+
+int gen_file() {
+    FILE *file;
+    // create src
+    file = fopen("src", "w");
+    if (file == NULL) {
+        fprintf(stderr, "fopen: file: ");
+        fclose(file);
+        exit(1);
+    }
+    // write 65536 bytes of '0' to src
+    for (int i = 0; i < FILE_SIZE; i++) {
+        fputc(DUMMY_CHAR, file);
+    }
+    // close file
+    fclose(file);
+
+    return 0;
+}
+
+int copy_char() {
+    char c;
+    int fps, fpd;
+    int count;
+    fps = open("src", O_RDONLY);
+    if (fps < 0) {
+        perror("open: src");
+        exit(1);
+    }
+    fpd = open("dst", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror("open: dst");
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+    while ((count = read(fps, &c, 1)) > 0) {
+        if (write(fpd, &c, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            exit(1);
+        }
+    }
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+    close(fpd);
+    close(fps);
+
+    return 0;
+}
+
+int is_same_checker() {
+    FILE *src, *dst;
+    int src_char, dst_char;
+
+    src = fopen("src", "r");
+    if (src == NULL) {
+        perror("fopen: src");
+        return 1;
+    }
+
+    dst = fopen("dst", "r");
+    if (dst == NULL) {
+        perror("fopen: dst");
+        fclose(src);
+        return 1;
+    }
+
+    while ((src_char = fgetc(src)) != EOF && (dst_char = fgetc(dst)) != EOF) {
+        if (src_char != dst_char) {
+            fclose(src);
+            fclose(dst);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(src);
+    fclose(dst);
+
+    return 0;
+}
+
+int copy_n(int n) {
+    char *str[n];
+    int fps, fpd;
+    int count;
+
+    fps = open("src", O_RDONLY);
+    if (fps < 0) {
+        perror("open: src");
+        exit(EXIT_FAILURE);
+    }
+
+    fpd = open("dst", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror("open: dst");
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+
+    while ((count = read(fps, &str, n)) > 0) {
+        if (write(fpd, &str, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            fprintf(stderr, "Check is same: Failed\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(EXIT_FAILURE);
+    }
+
+    close(fpd);
+    close(fps);
+
+    fprintf(stdout, "Check is same: OK\n");
+
+    return 0;
+}
+
+int main() {
+    struct timeval start_time;
+    struct timeval end_time;
+    float elapsed_time;
+
+    //* generate src *//
+    gen_file();
+
+    //* main process of per 1 char *//
+    // Start Time
+    gettimeofday(&start_time, NULL);
+
+    // Main Process
+    copy_char();
+
+    // End Time
+    gettimeofday(&end_time, NULL);
+    // Show Result
+    elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                   ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+    printf("Per 1 character\n");
+    printf("Elapsed time: %f seconds\n", elapsed_time);
+    // Check Is Same
+    is_same_checker();
+
+    //* main process of per BUFSIZ *//
+    // Start Time
+    gettimeofday(&start_time, NULL);
+
+    // Main Process
+    copy_n(BUFSIZ);
+
+    // End Time
+    gettimeofday(&end_time, NULL);
+    // Show Result
+    elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                   ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+    printf("Per 1 BUFSIZ (%d)\n", BUFSIZ);
+    printf("Elapsed time: %f seconds\n", elapsed_time);
+    // Check Is Same
+    is_same_checker();
+
+    //* main process of per N character *//
+    int n;
+    for (int i = 1; i <= 100; i++) {
+        // Set N
+        n = i * 1024;
+        // Start Time
+        gettimeofday(&start_time, NULL);
+
+        // Main Process
+        copy_n(n);
+
+        // End Time
+        gettimeofday(&end_time, NULL);
+        // Show Result
+        elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                       ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        if (i % 10 == 0) {
+            printf("Per %d character\n", n);
+            printf("Elapsed time: %f seconds\n", elapsed_time);
+        }
+        // Check Is Same
+        is_same_checker();
+    }
+
+    return 0;
+}
 ```
 
 [練習問題302 概要]
 
+C言語のライブラリやシステムコールとして用意されているファイルのコピーを行なう処理を比較する。
+その際、fgetc と fputc、fgets と fputs、fread と fwrite、read と writeの4つの方法を比較し、
+各処理に要した時間を計測する。
+
 [練習問題302 実行結果]
 
+バッファサイズを100バイト、10000バイト、1010000バイトに設定し、
+`src`というファイルから`dst`というファイルにコピーする処理を行った結果を表示した。
+fgetc と fputc を利用した処理に関しては、バッファサイズに依らないので、
+その結果は一度だけ表示している。
+
 ```sh
+$ gcc -Wall main.c
+$ ./a.out src dst
+- fgetc and fputc
+Elapsed time: 0.015831 seconds
+---Buffer size:     100 bytes---
+- fgets and fputs
+Buffer size: 100 bytes
+Elapsed time: 0.003998 seconds
+- fread and fwrite
+Buffer size: 100 bytes
+Elapsed time: 0.002630 seconds
+- read and write
+Buffer size: 100 bytes
+Elapsed time: 0.021960 seconds
+--------------------------------
+---Buffer size:   10000 bytes---
+- fgets and fputs
+Buffer size: 10000 bytes
+Elapsed time: 0.002287 seconds
+- fread and fwrite
+Buffer size: 10000 bytes
+Elapsed time: 0.001459 seconds
+- read and write
+Buffer size: 10000 bytes
+Elapsed time: 0.001219 seconds
+--------------------------------
+---Buffer size: 1010000 bytes---
+- fgets and fputs
+Buffer size: 1010000 bytes
+Elapsed time: 0.002113 seconds
+- fread and fwrite
+Buffer size: 1010000 bytes
+Elapsed time: 0.001257 seconds
+- read and write
+Buffer size: 1010000 bytes
+Elapsed time: 0.001247 seconds
+--------------------------------
+
 ```
 
 [練習問題302 考察]
 
+fgetc と fputc を利用した処理は、1文字ずつコピーするため、非常に遅いことがわかった。
+fgets と fputsに関しては、1行ずつコピーするため、バッファサイズがある程度大きくなると、
+バッファサイズを変更しても実行時間に大きな差が出ないことがわかった。
+fread と fwrite、read と writeに関してもバッファサイズがある程度大きくなると、
+実行時間に大きな差が出ないことがわかった。
+read と writeに関しては、バッファサイズによる実行速度の変化が顕著に現れたが、
+バッファサイズがある程度大きくなると、実行速度に関与しなくなることがわかった。
+実行速度の関係は、常に fgets と puts > fread と fwriteであった。
+適切なバッファサイズを選ぶことが、実行速度に大きく影響することがわかった。
+
 [練習問題302 プログラム]
 
+- FILE_SIZEのファイルを生成する関数
+
+ファイルサイズが1010000バイト、DUMMY_CHARが'0'のファイルを生成する。
+100行ごとに改行を入れるように処理が行なわれる。
 
 ```c
+#define FILE_SIZE 1010000  // 1010000 bytes
+#define DUMMY_CHAR '0'
+
+int gen_file(char *argv[]) {
+    FILE *file;
+    // create src
+    file = fopen(argv[1], "w");
+    if (file == NULL) {
+        fprintf(stderr, "fopen: file: ");
+        fclose(file);
+        exit(1);
+    }
+    // write 101000 bytes of '0' to src
+    for (int i = 1; i < FILE_SIZE + 1; i++) {
+        if (i % 100 == 0) {
+            fputc(DUMMY_CHAR, file);
+            // indent per 100 characters
+            fputc('\n', file);
+        } else {
+            fputc(DUMMY_CHAR, file);
+        }
+    }
+    // close file
+    fclose(file);
+
+    return 0;
+}
 ```
+
+- fgetc と fputc を利用した関数
+
+```c
+int fgetc_fputc(char *argv[]) {
+    int c;
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    while ((c = fgetc(fps)) != EOF) {
+        fputc(c, fpd);
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+```
+
+- fgets と fputs を利用した関数
+
+```c
+int fgets_fputs(char *argv[], int buffer_size) {
+    char buffer[buffer_size];
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    while (fgets(buffer, buffer_size, fps) != NULL) {
+        fputs(buffer, fpd);
+        if (ferror(fpd)) {
+            perror("fputs");
+            fclose(fpd);
+            fclose(fps);
+            exit(1);
+        }
+    }
+    if (ferror(fps)) {
+        perror("fgets");
+        fclose(fpd);
+        fclose(fps);
+        exit(1);
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+```
+
+- fread と fwrite を利用した関数
+
+```c
+int fread_fwrite(char *argv[], int buffer_size) {
+    char buffer[buffer_size];
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    size_t n;
+    while (!feof(fps)) {
+        n = fread(buffer, sizeof(char), buffer_size, fps);
+        if (ferror(fps)) {
+            perror("fread");
+            fclose(fpd);
+            fclose(fps);
+            exit(EXIT_FAILURE);
+        }
+        fwrite(buffer, sizeof(char), n, fpd);
+        if (ferror(fpd)) {
+            perror("fwrite");
+            fclose(fpd);
+            fclose(fps);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+```
+
+- read と write を利用した関数
+
+```c
+int read_write(char *argv[], int buffer_size) {
+    char *str[buffer_size];
+    int fps, fpd;
+    int count;
+
+    fps = open(argv[1], O_RDONLY);
+    if (fps < 0) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror(argv[2]);
+        close(fps);
+        exit(1);
+    }
+
+    while ((count = read(fps, &str, buffer_size)) > 0) {
+        if (write(fpd, &str, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            exit(1);
+        }
+    }
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(1);
+    }
+
+    close(fpd);
+    close(fps);
+
+    return 0;
+}
+```
+
+
+- main.cのプログラムの全体
+
+gettimeofday関数を利用して、各コピー処理の実行時間を計測した。
+バッファサイズを100バイト、10000バイト、1010000バイトに設定し、
+`src`というファイルから`dst`というファイルにコピーする処理の実行時間を計測した。
+fgetc と fputc を利用した処理に関しては、バッファサイズに依らないので、
+一度だけ実行時間を計測している。
+コピー元のファイル名とコピー先のファイル名は、コマンドライン引数で指定する。
+コピー元のファイル名が、第1引数、コピー先のファイル名が第2引数としている。
+
+```c
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#define FILE_SIZE 1010000  // 1010000 bytes
+#define DUMMY_CHAR '0'
+
+int gen_file(char *argv[]) {
+    FILE *file;
+    // create src
+    file = fopen(argv[1], "w");
+    if (file == NULL) {
+        fprintf(stderr, "fopen: file: ");
+        fclose(file);
+        exit(1);
+    }
+    // write 101000 bytes of '0' to src
+    for (int i = 1; i < FILE_SIZE + 1; i++) {
+        if (i % 100 == 0) {
+            fputc(DUMMY_CHAR, file);
+            // indent per 100 characters
+            fputc('\n', file);
+        } else {
+            fputc(DUMMY_CHAR, file);
+        }
+    }
+    // close file
+    fclose(file);
+
+    return 0;
+}
+
+int fgetc_fputc(char *argv[]) {
+    int c;
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    while ((c = fgetc(fps)) != EOF) {
+        fputc(c, fpd);
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+
+int fgets_fputs(char *argv[], int buffer_size) {
+    char buffer[buffer_size];
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    while (fgets(buffer, buffer_size, fps) != NULL) {
+        fputs(buffer, fpd);
+        if (ferror(fpd)) {
+            perror("fputs");
+            fclose(fpd);
+            fclose(fps);
+            exit(1);
+        }
+    }
+    if (ferror(fps)) {
+        perror("fgets");
+        fclose(fpd);
+        fclose(fps);
+        exit(1);
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+
+int fread_fwrite(char *argv[], int buffer_size) {
+    char buffer[buffer_size];
+    FILE *fps, *fpd;
+
+    fps = fopen(argv[1], "r");
+    if (fps == NULL) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = fopen(argv[2], "w");
+    if (fpd == NULL) {
+        perror(argv[2]);
+        fclose(fps);
+        exit(1);
+    }
+
+    size_t n;
+    while (!feof(fps)) {
+        n = fread(buffer, sizeof(char), buffer_size, fps);
+        if (ferror(fps)) {
+            perror("fread");
+            fclose(fpd);
+            fclose(fps);
+            exit(EXIT_FAILURE);
+        }
+        fwrite(buffer, sizeof(char), n, fpd);
+        if (ferror(fpd)) {
+            perror("fwrite");
+            fclose(fpd);
+            fclose(fps);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(fpd);
+    fclose(fps);
+
+    return 0;
+}
+
+int read_write(char *argv[], int buffer_size) {
+    char *str[buffer_size];
+    int fps, fpd;
+    int count;
+
+    fps = open(argv[1], O_RDONLY);
+    if (fps < 0) {
+        perror(argv[1]);
+        exit(1);
+    }
+
+    fpd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fpd < 0) {
+        perror(argv[2]);
+        close(fps);
+        exit(1);
+    }
+
+    while ((count = read(fps, &str, buffer_size)) > 0) {
+        if (write(fpd, &str, count) < 0) {
+            perror("write");
+            close(fpd);
+            close(fps);
+            exit(1);
+        }
+    }
+    if (count < 0) {
+        perror("read");
+        close(fpd);
+        close(fps);
+        exit(1);
+    }
+
+    close(fpd);
+    close(fps);
+
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    struct timeval start_time;
+    struct timeval end_time;
+    float elapsed_time;
+
+    // error handling for command line arguments
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s src_file dst_file\n", argv[0]);
+        exit(1);
+    }
+
+    // generate file
+    gen_file(argv);
+
+    //* fgetc and fputc *//
+    gettimeofday(&start_time, NULL);
+    // main process
+    fgetc_fputc(argv);
+
+    gettimeofday(&end_time, NULL);
+    // show result
+    elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                   ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+    printf("- fgetc and fputc\n");
+    printf("Elapsed time: %f seconds\n", elapsed_time);
+
+    // set 3 buffer sizes
+    int buf_size[] = {100, 10000, 1010000};
+    for (int i = 0; i < 3; i++) {
+        printf("---Buffer size: %7d bytes---\n", buf_size[i]);
+        //* fgets and fputs *//
+        gettimeofday(&start_time, NULL);
+        // main process
+        fgets_fputs(argv, buf_size[i]);
+
+        gettimeofday(&end_time, NULL);
+        // show result
+        elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                       ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        printf("- fgets and fputs\n");
+        printf("Buffer size: %d bytes\n", buf_size[i]);
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+
+        //* fread and fwrite *//
+        gettimeofday(&start_time, NULL);
+        // main process
+        fread_fwrite(argv, buf_size[i]);
+
+        gettimeofday(&end_time, NULL);
+        // show result
+        elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                       ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        printf("- fread and fwrite\n");
+        printf("Buffer size: %d bytes\n", buf_size[i]);
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+
+        //* read and write *//
+        gettimeofday(&start_time, NULL);
+        // main process
+        read_write(argv, buf_size[i]);
+
+        gettimeofday(&end_time, NULL);
+        // show result
+        elapsed_time = end_time.tv_sec - start_time.tv_sec +
+                       ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
+        printf("- read and write\n");
+        printf("Buffer size: %d bytes\n", buf_size[i]);
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+        printf("--------------------------------\n");
+    }
+
+    return 0;
+}
+
+```
+
+[参考サイト]
+
+- gettimeofday
+
+https://www.mm2d.net/main/prog/c/time-04.html
+
+https://armadillo.atmark-techno.com/blog/615/2799
+
+- fgets, fputs
+
+https://www.ibm.com/docs/ja/i/7.4.0?topic=functions-fgets-read-string#fgets
+
+https://www.ibm.com/docs/ja/i/7.4.0?topic=functions-fputs-write-string
+
+- fread, fwrite
+
+https://www.ibm.com/docs/ja/i/7.4.0?topic=functions-fread-read-items
+
+https://www.ibm.com/docs/ja/i/7.4.0?topic=functions-fwrite-write-items#fwrite
 

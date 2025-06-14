@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#define FILE_SIZE 65536 // 64KB
+#define FILE_SIZE 65536  // 64KB
 #define DUMMY_CHAR '0'
 
 int gen_file() {
@@ -39,7 +39,7 @@ int copy_char() {
     if (fpd < 0) {
         perror("open: dst");
         close(fps);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     while ((count = read(fps, &c, 1)) > 0) {
         if (write(fpd, &c, count) < 0) {
@@ -53,10 +53,41 @@ int copy_char() {
         perror("read");
         close(fpd);
         close(fps);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     close(fpd);
     close(fps);
+
+    return 0;
+}
+
+int is_same_checker() {
+    FILE *src, *dst;
+    int src_char, dst_char;
+
+    src = fopen("src", "r");
+    if (src == NULL) {
+        perror("fopen: src");
+        return 1;
+    }
+
+    dst = fopen("dst", "r");
+    if (dst == NULL) {
+        perror("fopen: dst");
+        fclose(src);
+        return 1;
+    }
+
+    while ((src_char = fgetc(src)) != EOF && (dst_char = fgetc(dst)) != EOF) {
+        if (src_char != dst_char) {
+            fclose(src);
+            fclose(dst);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    fclose(src);
+    fclose(dst);
 
     return 0;
 }
@@ -69,14 +100,14 @@ int copy_n(int n) {
     fps = open("src", O_RDONLY);
     if (fps < 0) {
         perror("open: src");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     fpd = open("dst", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fpd < 0) {
         perror("open: dst");
         close(fps);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     while ((count = read(fps, &str, n)) > 0) {
@@ -84,7 +115,8 @@ int copy_n(int n) {
             perror("write");
             close(fpd);
             close(fps);
-            exit(1);
+            fprintf(stderr, "Check is same: Failed\n");
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -92,11 +124,13 @@ int copy_n(int n) {
         perror("read");
         close(fpd);
         close(fps);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     close(fpd);
     close(fps);
+
+    fprintf(stdout, "Check is same: OK\n");
 
     return 0;
 }
@@ -123,6 +157,8 @@ int main() {
                    ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
     printf("Per 1 character\n");
     printf("Elapsed time: %f seconds\n", elapsed_time);
+    // Check Is Same
+    is_same_checker();
 
     //* main process of per BUFSIZ *//
     // Start Time
@@ -138,6 +174,8 @@ int main() {
                    ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
     printf("Per 1 BUFSIZ (%d)\n", BUFSIZ);
     printf("Elapsed time: %f seconds\n", elapsed_time);
+    // Check Is Same
+    is_same_checker();
 
     //* main process of per N character *//
     int n;
@@ -155,8 +193,12 @@ int main() {
         // Show Result
         elapsed_time = end_time.tv_sec - start_time.tv_sec +
                        ((end_time.tv_usec - start_time.tv_usec) / 1000000.0);
-        printf("Per %d character\n", n);
-        printf("Elapsed time: %f seconds\n", elapsed_time);
+        if (i % 10 == 0) {
+            printf("Per %d character\n", n);
+            printf("Elapsed time: %f seconds\n", elapsed_time);
+        }
+        // Check Is Same
+        is_same_checker();
     }
 
     return 0;
