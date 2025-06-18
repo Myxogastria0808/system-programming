@@ -1,0 +1,45 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：3
+練習問題番号：301, 302
+題名：ファイル操作
+
+[環境]
+
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20241116
+
+以下のshell.nixの環境で課題に取り組んだ。
+
+```nix
+{
+  description = "nodejs flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+          ];
+        };
+      }
+    );
+}
+```
+
+---
