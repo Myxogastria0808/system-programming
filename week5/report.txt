@@ -1,0 +1,103 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：5
+練習問題番号：501, 504
+題名：シグナルの理解
+
+[環境]
+
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20250322
+
+以下のflake.nixの環境で課題に取り組んだ。
+
+```nix
+{
+  description = "clang flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+          ];
+        };
+      }
+    );
+}
+```
+
+[練習問題501 概要]
+
+
+[練習問題501 実行結果]
+
+
+```sh
+$ gcc main.c
+$ ./a.out
+
+```
+
+[練習問題501 考察]
+
+
+[練習問題501 プログラム]
+
+- main.c
+
+```c
+```
+
+[練習問題506 概要]
+
+
+[練習問題506 実行結果]
+
+
+```sh
+$ gcc main.c
+$ ./a.out
+
+```
+
+[練習問題506 考察]
+
+
+[練習問題506 プログラム]
+
+- main.c
+
+```c
+```
+
+[参考サイト]
+
+- `f(;;) {}`の意味の調査に使用
+
+https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1423706384
+
+- `SVID`と`POSIX`の調査に使用
+
+https://qiita.com/ko1nksm/items/7d75a700ef1be2722372
+
+- フォーマット指定子の調査に使用
+
+https://tcs.c.titech.ac.jp/csbook/c_lang/chap5.html
+
+---
