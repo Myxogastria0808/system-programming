@@ -1,0 +1,379 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：6
+練習問題番号：604
+題名：ネットワーク・プログラミング／クライアント側
+
+[環境]
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20250322
+
+以下のflake.nixの環境で課題に取り組んだ。
+今回は、telnetを利用するために、`inetutils`を
+flake.nixに追加している。
+
+```nix
+{
+  description = "clang flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+            inetutils
+          ];
+        };
+      }
+    );
+}
+
+```
+
+[練習問題604 概要]
+HTTPサーバに HTML 等のテキスト・ファイルを要求し、
+その内容を画面に表示 するプログラムを作成した。
+
+[練習問題604 実行結果]
+http://example.com:80/index.html に対して
+HTTPリクエストを送信し、レスポンスを受信した結果を
+出力している。
+
+```sh
+$ gcc -O2 -flto main.c -o wcat
+$ ./wcat example.com 80 /index.html
+HTTP/1.0 200 OK
+Content-Type: text/html
+ETag: "84238dfc8092e5d9c0dac8ef93371a07:1736799080.121134"
+Last-Modified: Mon, 13 Jan 2025 20:11:20 GMT
+Cache-Control: max-age=2137
+Date: Fri, 04 Jul 2025 17:45:48 GMT
+Content-Length: 1256
+Connection: close
+X-N: S
+
+<!doctype html>
+<html>
+<head>
+    <title>Example Domain</title>
+
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type="text/css">
+    body {
+        background-color: #f0f0f2;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+    }
+    div {
+        width: 600px;
+        margin: 5em auto;
+        padding: 2em;
+        background-color: #fdfdff;
+        border-radius: 0.5em;
+        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);
+    }
+    a:link, a:visited {
+        color: #38488f;
+        text-decoration: none;
+    }
+    @media (max-width: 700px) {
+        div {
+            margin: 0 auto;
+            width: auto;
+        }
+    }
+    </style>
+</head>
+
+<body>
+<div>
+    <h1>Example Domain</h1>
+    <p>This domain is for use in illustrative examples in documents. You may use this
+    domain in literature without prior coordination or asking for permission.</p>
+    <p><a href="https://www.iana.org/domains/example">More information...</a></p>
+</div>
+</body>
+</html>
+
+```
+
+[練習問題604 考察]
+http://example.com:80/index.html に対して
+HTTPリクエストを送信し、レスポンスを受信した結果が
+200 OK であることから正常に実行できていると思われる。
+出力として、ヘッダ情報とHTMLの内容が出力される。
+
+
+[練習問題604 プログラム]
+
+- int http_send_request(FILE *out, char *server, char *file_path);
+引数に与えたホスト名、ポート番号、ファイルパスに対して
+HTTPリクエストを送信する関数である。
+fprintf関数でリクエストを送信している。
+
+```c
+int http_send_request(FILE *out, char *server, char *file_path) {
+    int res;
+    /* send a request */
+    res =
+        fprintf(out, "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", file_path, server);
+    return res;
+}
+```
+
+- int http_receive_response(FILE *in, char buf[], int size);
+HTTPリクエストのレスポンスを受け取る関数である。
+ヘッダ情報とHTMLの内容を受け取り、標準出力に出力している。
+
+```c
+int http_receive_response(FILE *in, char buf[], int size) {
+    char *line;
+    /* receive a response */
+    while (1) {
+        line = fgets(buf, size, in);
+        // show received line
+        if (line != NULL) {
+            fprintf(stdout, "%s", line);
+        } else {
+            break;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+```
+
+- int http_client_one(char *server, int port, char *file_path);
+HTTPリクエストとレスポンスを送受信する関数である。
+この関数の内部には、http_send_request関数と
+http_receive_response関数が含まれており、
+サーバに接続してリクエストを送信し、レスポンスを受信する。
+
+```c
+#define BUFFERSIZE 1024
+
+int http_client_one(char *server, int port, char *file_path) {
+    int sock;
+    FILE *in, *out;
+    char rbuf[BUFFERSIZE];
+    int res;
+
+    // connect to a server
+    sock = tcp_connect(server, port);
+    if (sock < 0) return EXIT_FAILURE;
+    if (fdopen_sock(sock, &in, &out) < 0) {
+        fprintf(stderr, "fdopen()\n");
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
+    // send request
+    res = http_send_request(out, server, file_path);
+    if (res < 0) {
+        fprintf(stderr, "fprintf()\n");
+        fclose(in);
+        fclose(out);
+        return EXIT_FAILURE;
+    }
+
+    // receive response
+    res = http_receive_response(in, rbuf, BUFFERSIZE);
+    if (res < 0) {
+        fprintf(stderr, "fprintf()\n");
+        fclose(in);
+        fclose(out);
+        return EXIT_FAILURE;
+    }
+
+    fclose(in);
+    fclose(out);
+    return EXIT_SUCCESS;
+}
+```
+
+- main.c
+以下が main.c の全内容である。
+main関数では、引数をパースしてhttp_client_one関数に渡している。
+
+```c
+#include <netdb.h>      /* getaddrinfo() */
+#include <netinet/in.h> /* struct sockaddr_in */
+#include <stdio.h>
+#include <stdlib.h>     /* exit() */
+#include <string.h>     /* memset(), memcpy() */
+#include <string.h>     /* strlen() */
+#include <sys/socket.h> /* socket() */
+#include <sys/types.h>  /* socket() */
+#include <unistd.h>     /* close() */
+
+extern int http_client_one(char *server, int port, char *file_path);
+extern int http_send_request(FILE *out, char *server, char *file_path);
+extern int http_receive_response(FILE *in, char buf[], int size);
+extern int tcp_connect(char *server, int portno);
+extern int fdopen_sock(int sock, FILE **inp, FILE **outp);
+
+//* network functions *//
+#define PORTNO_BUFSIZE 30
+
+int tcp_connect(char *server, int portno) {
+    struct addrinfo hints, *ai, *p;
+    char portno_str[PORTNO_BUFSIZE];
+    int s = 0;
+    int err = 0;
+    snprintf(portno_str, sizeof(portno_str), "%d", portno);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+    if ((err = getaddrinfo(server, portno_str, &hints, &ai))) {
+        fprintf(stderr, "unknown server %s (%s)\n", server, gai_strerror(err));
+        goto error0;
+    }
+    for (p = ai; p; p = p->ai_next) {
+        if ((s = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) {
+            perror("socket");
+            goto error1;
+        }
+        if (connect(s, p->ai_addr, p->ai_addrlen) >= 0) {
+            break;
+        } else {
+            close(s);
+        }
+    }
+    freeaddrinfo(ai);
+    return (s);
+error1:
+    freeaddrinfo(ai);
+error0:
+    return EXIT_FAILURE;
+}
+
+int fdopen_sock(int sock, FILE **inp, FILE **outp) {
+    int sock2;
+    if ((sock2 = dup(sock)) < 0) {
+        return EXIT_FAILURE;
+    }
+    if ((*inp = fdopen(sock2, "r")) == NULL) {
+        close(sock2);
+        return EXIT_FAILURE;
+    }
+    if ((*outp = fdopen(sock, "w")) == NULL) {
+        fclose(*inp);
+        *inp = 0;
+        return EXIT_FAILURE;
+    }
+    setvbuf(*outp, (char *)NULL, _IONBF, 0);
+    return (EXIT_SUCCESS);
+}
+
+//* http functions *//
+#define BUFFERSIZE 1024
+
+int http_client_one(char *server, int port, char *file_path) {
+    int sock;
+    FILE *in, *out;
+    char rbuf[BUFFERSIZE];
+    int res;
+
+    // connect to a server
+    sock = tcp_connect(server, port);
+    if (sock < 0) return EXIT_FAILURE;
+    if (fdopen_sock(sock, &in, &out) < 0) {
+        fprintf(stderr, "fdopen()\n");
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
+    // send request
+    res = http_send_request(out, server, file_path);
+    if (res < 0) {
+        fprintf(stderr, "fprintf()\n");
+        fclose(in);
+        fclose(out);
+        return EXIT_FAILURE;
+    }
+
+    // receive response
+    res = http_receive_response(in, rbuf, BUFFERSIZE);
+    if (res < 0) {
+        fprintf(stderr, "fprintf()\n");
+        fclose(in);
+        fclose(out);
+        return EXIT_FAILURE;
+    }
+
+    fclose(in);
+    fclose(out);
+    return EXIT_SUCCESS;
+}
+
+int http_send_request(FILE *out, char *server, char *file_path) {
+    int res;
+    /* send a request */
+    res =
+        fprintf(out, "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", file_path, server);
+    return res;
+}
+
+int http_receive_response(FILE *in, char buf[], int size) {
+    char *line;
+    /* receive a response */
+    while (1) {
+        line = fgets(buf, size, in);
+        // show received line
+        if (line != NULL) {
+            fprintf(stdout, "%s", line);
+        } else {
+            break;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+//* main function *//
+int main(int argc, char *argv[]) {
+    // init
+    char *server;
+    int port;
+    char *file_path;
+    int error_number;
+
+    // arguments validation
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s server port file_path\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    // parse arguments
+    // argv[1]: server, argv[2]: port, argv[3]: file_path
+    server = argv[1];
+    port = strtol(argv[2], NULL, 10);
+    file_path = argv[3];
+
+    // communicate to a server
+    error_number = http_client_one(server, port, file_path);
+
+    return error_number;
+}
+
+```
+
+---

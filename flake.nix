@@ -17,9 +17,9 @@
           packages = with pkgs; [
             gcc
             gnumake
+            inetutils
           ];
         };
       }
     );
 }
-
