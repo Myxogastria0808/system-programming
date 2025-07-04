@@ -82,16 +82,21 @@ int main(int argc, char *argv[]) {
     }
 
     // convert argument to time_t
-    time_t time = atoi(argv[1]);
-    if (time <= 0) {
+    time_t arg_time = atoi(argv[1]);
+    if (arg_time <= 0) {
         perror("time");
         exit(EXIT_FAILURE);
     }
 
     // execute mygetchar function
-    signed int output = mygetchar(time);
+    time_t start_time = time(NULL);
+    signed int output = mygetchar(arg_time);
+    time_t end_time = time(NULL);
 
     // show output
+    printf("---- Time ----\n");
+    printf("start time: %s\n", ctime(&start_time));
+    printf("end time: %s\n", ctime(&end_time));
     printf("---- Output ----\n");
     if (output >= 0) {
         printf("Input received: %c\n", output);

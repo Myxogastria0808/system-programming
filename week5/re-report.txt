@@ -1,0 +1,399 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：5
+練習問題番号：501, 506
+題名：シグナルの理解
+
+このレポートは、練習課題501と506の内容に問題がったため、
+再提出をしたものである。
+
+[環境]
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20250322
+
+以下のflake.nixの環境で課題に取り組んだ。
+
+```nix
+{
+  description = "clang flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+          ];
+        };
+      }
+    );
+}
+```
+
+[練習問題501 概要]
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
+
+[練習問題501 実行結果]
+カレントディレクトリにある全てのファイルの情報を
+1行に1ファイルずつ出力できている。
+
+[再提出の箇所の修正点]
+ファイルサイズが表示されるように、
+statを利用してファイルサイズを取得し、出力するようにした。
+
+```sh
+$ gcc main.c
+$ ./a.out
+./a.out
+.. 4096
+sample 4096
+main.c 2773
+a.out 16088
+. 4096
+```
+
+[練習問題501 考察]
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
+課題の要件は満たせていると思われる。
+
+[練習問題501 プログラム]
+
+- main.c
+opendir関数、readdir関数、closedir関数を使用して
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
+
+[再提出の箇所の修正点]
+statを利用してファイルサイズを取得し、出力するように修正した。
+
+```c
+if (stat(direntp->d_name, &st) == -1) {
+    perror("stat");
+    exit(EXIT_FAILURE);
+}
+printf("%s %ld\n", direntp->d_name, st.st_size);
+```
+
+```c
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+extern int errno;
+
+int main(void) {
+    DIR *dirp;
+    struct dirent *direntp;
+    struct stat st;
+    int org_errno, errno;
+    // opendir() ... open directory
+    if ((dirp = opendir(".")) == NULL) {
+        perror("opendir");
+        exit(EXIT_FAILURE);
+    }
+    while (1) {
+        org_errno = errno = 12345;
+        // readdir() ... read per directory entry
+        direntp = readdir(dirp);
+        if (direntp == NULL) {
+            if (errno == org_errno) {
+                // complete reading all directory entries
+                break;
+            } else {
+                // error occurred while reading directory entry
+                perror("readdir");
+                closedir(dirp);
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            // successfully read directory entry
+            //
+            // struct dirent {
+            //     ino_t d_ino;             /* Inode number */
+            //     off_t d_off;             /* Not an offset; see below */
+            //     unsigned short d_reclen; /* Length of this record */
+            //     unsigned char d_type;    /* Type of file; not supported
+            /*                                 by all filesystem types */
+            //     char d_name[256];        /* Null-terminated filename */
+            // };
+            //
+            // struct stat {
+            //     dev_t st_dev;            /* ID of device containing file */
+            //     ino_t st_ino;            /* Inode number */
+            //     mode_t st_mode;          /* File type and mode */
+            //     nlink_t st_nlink;        /* Number of hard links */
+            //     uid_t st_uid;            /* User ID of owner */
+            //     gid_t st_gid;            /* Group ID of owner */
+            //     dev_t st_rdev;           /* Device ID (if special file) */
+            //     off_t st_size;           /* Total size, in bytes */
+            //     blksize_t st_blksize;    /* Block size for filesystem I/O */
+            //     blkcnt_t st_blocks;      /* Number of 512B blocks allocated
+            //     */ struct timespec st_atim; /* Time of last access */ struct
+            //     timespec st_mtim; /* Time of last modification */ struct
+            //     timespec st_ctim; /* Time of last status change */
+            // };
+            if (stat(direntp->d_name, &st) == -1) {
+                perror("stat");
+                exit(EXIT_FAILURE);
+            }
+            printf("%s %ld\n", direntp->d_name, st.st_size);
+        }
+    }
+    // closedir() ... close directory
+    closedir(dirp);
+    return 0;
+}
+```
+
+[練習問題506 概要]
+シグナルを使用して、指定された時間内に入力がなかった場合は
+タイムアウトとして-2を返し、EOFが入力された場合は-1を返し、
+Ctrl+Cが入力された場合は-3を返す関数を作成した。
+
+[練習問題506 実行結果]
+シグナルを使用して、指定された時間内に入力がなかった場合は
+タイムアウトとして-2を返し、EOFが入力された場合は-1を返し、
+Ctrl+Cが入力された場合は-3を返していることが確認できる。
+
+[再提出の箇所の修正点]
+time関数で、mygetchar関数の実行前の時刻と
+実行後の時刻を取得し、ctime関数で出力している。
+
+```sh
+$ gcc main.c
+$ ./a.out 1
+---- Time ----
+start time: Fri Jul  4 20:12:32 2025
+
+end time: Fri Jul  4 20:12:33 2025
+
+---- Output ----
+SIGALRM received (Timeout occurred)
+-2
+$ ./a.out 1
+---- Time ----
+start time: Fri Jul  4 20:12:51 2025
+
+end time: Fri Jul  4 20:12:51 2025
+
+---- Output ----
+EOF (Ctrl+D) received
+-1
+$ ./a.out 1
+^C---- Time ----
+start time: Fri Jul  4 20:13:14 2025
+
+end time: Fri Jul  4 20:13:14 2025
+
+---- Output ----
+SIGINT (Ctrl+C) received
+-3
+$ ./a.out 1
+a
+---- Time ----
+start time: Fri Jul  4 20:13:34 2025
+
+end time: Fri Jul  4 20:13:34 2025
+
+---- Output ----
+Input received: a
+a
+```
+
+[練習問題506 考察]
+signal_handler関数の内部でprintf関数を
+実行するのは不適切であるため、
+signal_handler関数では
+シグナルを受け取ったことを示すフラグを設定し、
+main関数でprintf関数を実行するようにした。
+参考サイトは、以下である。
+https://qiita.com/rarul/items/090920b850acc4b7e910
+
+[練習問題506 プログラム]
+
+- main.c
+[再提出の箇所の修正点]
+time関数で、mygetchar関数の実行前の時刻と
+実行後の時刻を取得し、ctime関数で出力するように修正した。
+
+```c
+// execute mygetchar function
+time_t start_time = time(NULL);
+signed int output = mygetchar(arg_time);
+time_t end_time = time(NULL);
+
+// show output
+printf("---- Time ----\n");
+printf("start time: %s\n", ctime(&start_time));
+printf("end time: %s\n", ctime(&end_time));
+```
+
+シグナルごとにsigactionをする必要があるので、
+SIGALRMとSIGINTに対して別々に
+signal_handler関数を設定した。
+signal_handler関数の内部でprintf関数を
+実行するのは不適切であるため、
+signal_handler関数では
+シグナルを受け取ったことを示すフラグを設定し、
+main関数でprintf関数を実行するようにした。
+
+```c
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
+
+volatile sig_atomic_t result = 0;
+
+void signal_handler(int signum) {
+    if (signum == SIGALRM) {
+        // get SIGALRM signal
+        result = -2;
+    }
+    if (signum == SIGINT) {
+        // get SIGINT signal (Ctrl+C)
+        result = -3;
+    }
+}
+
+signed int mygetchar(time_t time) {
+    struct sigaction sa_alarm;
+    struct itimerval itimer;
+
+    // initialize the alarm signal handler
+    memset(&sa_alarm, 0, sizeof(sa_alarm));
+    sa_alarm.sa_handler = signal_handler;
+    sa_alarm.sa_flags = 0;
+
+    // set the signal handler for SIGALRM
+    if (sigaction(SIGALRM, &sa_alarm, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+
+    // set the signal handler for SIGINT
+    if (sigaction(SIGINT, &sa_alarm, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+
+    // initialize the timer
+    itimer.it_value.tv_sec = itimer.it_interval.tv_sec = time;
+    itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
+        perror("setitimer");
+        exit(EXIT_FAILURE);
+    }
+
+    // wait for input or timeout
+    int c = getchar();
+
+    // get EOF (Ctrl+D) signal
+    if (feof(stdin)) {
+        // input EOF
+        result = -1;
+    }
+
+    // check result has success flag
+    if (result == 0) {
+        // normal input
+        result = c;
+    }
+
+    // reset the timer
+    itimer.it_value.tv_sec = itimer.it_interval.tv_sec = 0;
+    itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
+        perror("setitimer");
+        exit(EXIT_FAILURE);
+    }
+
+    return result;
+}
+
+int main(int argc, char *argv[]) {
+    // argument validation
+    if (argc != 2) {
+        perror("argc");
+        exit(EXIT_FAILURE);
+    }
+
+    // convert argument to time_t
+    time_t arg_time = atoi(argv[1]);
+    if (arg_time <= 0) {
+        perror("time");
+        exit(EXIT_FAILURE);
+    }
+
+    // execute mygetchar function
+    time_t start_time = time(NULL);
+    signed int output = mygetchar(arg_time);
+    time_t end_time = time(NULL);
+
+    // show output
+    printf("---- Time ----\n");
+    printf("start time: %s\n", ctime(&start_time));
+    printf("end time: %s\n", ctime(&end_time));
+    printf("---- Output ----\n");
+    if (output >= 0) {
+        printf("Input received: %c\n", output);
+        printf("%c\n", output);
+    } else if (output == -1) {
+        printf("EOF (Ctrl+D) received\n");
+        printf("%d\n", output);
+    } else if (output == -2) {
+        printf("SIGALRM received (Timeout occurred)\n");
+        printf("%d\n", output);
+    } else if (output == -3) {
+        printf("SIGINT (Ctrl+C) received\n");
+        printf("%d\n", output);
+    } else {
+        printf("Unknown output: %d\n", output);
+    }
+
+    return 0;
+}
+```
+
+[参考サイト]
+- `f(;;) {}`の意味の調査に使用
+
+https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1423706384
+
+- `SVID`と`POSIX`の調査に使用
+
+https://qiita.com/ko1nksm/items/7d75a700ef1be2722372
+
+- フォーマット指定子の調査に使用
+
+https://tcs.c.titech.ac.jp/csbook/c_lang/chap5.html
+
+- シグナルハンドラの実装に関する調査に使用
+
+https://qiita.com/rarul/items/090920b850acc4b7e910
+
+---
