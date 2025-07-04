@@ -31,13 +31,13 @@ signed int mygetchar(time_t time) {
     // set the signal handler for SIGALRM
     if (sigaction(SIGALRM, &sa_alarm, NULL) < 0) {
         perror("sigaction");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // set the signal handler for SIGINT
     if (sigaction(SIGINT, &sa_alarm, NULL) < 0) {
         perror("sigaction");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // initialize the timer
@@ -45,7 +45,7 @@ signed int mygetchar(time_t time) {
     itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
     if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
         perror("setitimer");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // wait for input or timeout
@@ -68,7 +68,7 @@ signed int mygetchar(time_t time) {
     itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
     if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
         perror("setitimer");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     return result;

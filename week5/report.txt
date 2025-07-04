@@ -3,11 +3,10 @@
 学籍番号: 202310330
 名前: 長田 悠生
 課題番号：5
-練習問題番号：501, 504
+練習問題番号：501, 506
 題名：シグナルの理解
 
 [環境]
-
 OSの環境等は以下の通りである。
 
 OS: NixOS 25.05 (Warbler) x86_64
@@ -43,51 +42,262 @@ gcc version: 14.2.1 20250322
 ```
 
 [練習問題501 概要]
-
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
 
 [練習問題501 実行結果]
-
+カレントディレクトリにある全てのファイルの情報を
+1行に1ファイルずつ出力できている。
 
 ```sh
 $ gcc main.c
 $ ./a.out
-
+.. 24
+sample 32
+main.c 32
+a.out 32
+. 24
 ```
 
 [練習問題501 考察]
-
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
+課題の要件は満たせていると思われる。
 
 [練習問題501 プログラム]
 
 - main.c
+opendir関数、readdir関数、closedir関数を使用して
+カレントディレクトリにあるファイルの情報を
+1行に1ファイルずつ出力するプログラムを作成した。
 
 ```c
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+extern int errno;
+
+int main(void) {
+    DIR *dirp;
+    struct dirent *direntp;
+    int org_errno, errno;
+    // opendir() ... open directory
+    if ((dirp = opendir(".")) == NULL) {
+        perror("opendir");
+        exit(EXIT_FAILURE);
+    }
+    while (1) {
+        org_errno = errno = 12345;
+        // readdir() ... read per directory entry
+        direntp = readdir(dirp);
+        if (direntp == NULL) {
+            if (errno == org_errno) {
+                // complete reading all directory entries
+                break;
+            } else {
+                // error occurred while reading directory entry
+                perror("readdir");
+                closedir(dirp);
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            // successfully read directory entry
+            // struct dirent {
+            //     ino_t d_ino;             /* Inode number */
+            //     off_t d_off;             /* Not an offset; see below */
+            //     unsigned short d_reclen; /* Length of this record */
+            //     unsigned char d_type;    /* Type of file; not supported
+            /*                                 by all filesystem types */
+            //     char d_name[256];        /* Null-terminated filename */
+            // };
+            printf("%s %u\n", direntp->d_name, direntp->d_reclen);
+        }
+    }
+    // closedir() ... close directory
+    closedir(dirp);
+    return 0;
+}
 ```
 
 [練習問題506 概要]
-
+シグナルを使用して、指定された時間内に入力がなかった場合は
+タイムアウトとして-2を返し、EOFが入力された場合は-1を返し、
+Ctrl+Cが入力された場合は-3を返す関数を作成した。
 
 [練習問題506 実行結果]
-
+シグナルを使用して、指定された時間内に入力がなかった場合は
+タイムアウトとして-2を返し、EOFが入力された場合は-1を返し、
+Ctrl+Cが入力された場合は-3を返していることが確認できる。
 
 ```sh
 $ gcc main.c
-$ ./a.out
-
+$ ./a.out 1
+---- Output ----
+SIGALRM received (Timeout occurred)
+-2
+$ ./a.out 1
+---- Output ----
+EOF (Ctrl+D) received
+-1
+$ ./a.out 1
+^C---- Output ----
+SIGINT (Ctrl+C) received
+-3
+$ ./a.out 1
+a
+---- Output ----
+Input received: a
+a
+$ ./a.out 1
+abc
+---- Output ----
+Input received: a
+a
 ```
 
 [練習問題506 考察]
-
+signal_handler関数の内部でprintf関数を
+実行するのは不適切であるため、
+signal_handler関数では
+シグナルを受け取ったことを示すフラグを設定し、
+main関数でprintf関数を実行するようにした。
+参考サイトは、以下である。
+https://qiita.com/rarul/items/090920b850acc4b7e910
 
 [練習問題506 プログラム]
 
 - main.c
+シグナルごとにsigactionをする必要があるので、
+SIGALRMとSIGINTに対して別々に
+signal_handler関数を設定した。
+signal_handler関数の内部でprintf関数を
+実行するのは不適切であるため、
+signal_handler関数では
+シグナルを受け取ったことを示すフラグを設定し、
+main関数でprintf関数を実行するようにした。
 
 ```c
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
+
+volatile sig_atomic_t result = 0;
+
+void signal_handler(int signum) {
+    if (signum == SIGALRM) {
+        // get SIGALRM signal
+        result = -2;
+    }
+    if (signum == SIGINT) {
+        // get SIGINT signal (Ctrl+C)
+        result = -3;
+    }
+}
+
+signed int mygetchar(time_t time) {
+    struct sigaction sa_alarm;
+    struct itimerval itimer;
+
+    // initialize the alarm signal handler
+    memset(&sa_alarm, 0, sizeof(sa_alarm));
+    sa_alarm.sa_handler = signal_handler;
+    sa_alarm.sa_flags = 0;
+
+    // set the signal handler for SIGALRM
+    if (sigaction(SIGALRM, &sa_alarm, NULL) < 0) {
+        perror("sigaction");
+        exit(1);
+    }
+
+    // set the signal handler for SIGINT
+    if (sigaction(SIGINT, &sa_alarm, NULL) < 0) {
+        perror("sigaction");
+        exit(1);
+    }
+
+    // initialize the timer
+    itimer.it_value.tv_sec = itimer.it_interval.tv_sec = time;
+    itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
+        perror("setitimer");
+        exit(1);
+    }
+
+    // wait for input or timeout
+    int c = getchar();
+
+    // get EOF (Ctrl+D) signal
+    if (feof(stdin)) {
+        // input EOF
+        result = -1;
+    }
+
+    // check result has success flag
+    if (result == 0) {
+        // normal input
+        result = c;
+    }
+
+    // reset the timer
+    itimer.it_value.tv_sec = itimer.it_interval.tv_sec = 0;
+    itimer.it_value.tv_usec = itimer.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &itimer, NULL) < 0) {
+        perror("setitimer");
+        exit(1);
+    }
+
+    return result;
+}
+
+int main(int argc, char *argv[]) {
+    // argument validation
+    if (argc != 2) {
+        perror("argc");
+        exit(EXIT_FAILURE);
+    }
+
+    // convert argument to time_t
+    time_t time = atoi(argv[1]);
+    if (time <= 0) {
+        perror("time");
+        exit(EXIT_FAILURE);
+    }
+
+    // execute mygetchar function
+    signed int output = mygetchar(time);
+
+    // show output
+    printf("---- Output ----\n");
+    if (output >= 0) {
+        printf("Input received: %c\n", output);
+        printf("%c\n", output);
+    } else if (output == -1) {
+        printf("EOF (Ctrl+D) received\n");
+        printf("%d\n", output);
+    } else if (output == -2) {
+        printf("SIGALRM received (Timeout occurred)\n");
+        printf("%d\n", output);
+    } else if (output == -3) {
+        printf("SIGINT (Ctrl+C) received\n");
+        printf("%d\n", output);
+    } else {
+        printf("Unknown output: %d\n", output);
+    }
+
+    return 0;
+}
 ```
 
 [参考サイト]
-
 - `f(;;) {}`の意味の調査に使用
 
 https://detail.chiebukuro.yahoo.co.jp/qa/question_detail/q1423706384
@@ -99,5 +309,9 @@ https://qiita.com/ko1nksm/items/7d75a700ef1be2722372
 - フォーマット指定子の調査に使用
 
 https://tcs.c.titech.ac.jp/csbook/c_lang/chap5.html
+
+- シグナルハンドラの実装に関する調査に使用
+
+https://qiita.com/rarul/items/090920b850acc4b7e910
 
 ---
