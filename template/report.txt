@@ -1,0 +1,55 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：XXX
+練習問題番号：XXX
+題名：XXX
+
+[環境]
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20250322
+
+以下のflake.nixの環境で課題に取り組んだ。
+今回は、telnetを利用するために、`inetutils`を
+flake.nixに追加している。
+
+```nix
+{
+  description = "clang flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+            inetutils
+          ];
+        };
+      }
+    );
+}
+```
+
+[練習問題XXX 概要]
+
+[練習問題XXX 実行結果]
+
+[練習問題XXX 考察]
+
+[練習問題XXX プログラム]
+
+---
