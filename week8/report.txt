@@ -1,0 +1,743 @@
+---
+
+学籍番号: 202310330
+名前: 長田 悠生
+課題番号：8
+練習問題番号：706
+題名：ネットワーク・プログラミング／サーバ側(2)
+
+[環境]
+OSの環境等は以下の通りである。
+
+OS: NixOS 25.05 (Warbler) x86_64
+gcc version: 14.2.1 20250322
+
+以下のflake.nixの環境で課題に取り組んだ。
+今回の課題では、ezaとcurlを使用しているが、
+以下のflake.nixには含ませていない。
+実行環境のできる限りの完全な再現をする場合は、
+この実行環境を構築するために使用した私のdotfilesを
+参照してほしい。(dotfilesには、ezaとcurlが含まれている。)
+以下、私のdotfilesのURLである。
+
+[dotfiles URL]
+https://github.com/Myxogastria0808/dotfiles
+
+```nix
+{
+  description = "clang flake sample";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            gcc
+            gnumake
+            inetutils
+          ];
+        };
+      }
+    );
+}
+```
+
+[練習問題706 概要]
+.html のファイルのみを受け付けるHTTP サーバを作成した。
+
+[練習問題706 実行結果]
+
+- server想定
+
+ezaを使ってディレクトリ構造を確認し、
+main.cをコンパイルして実行した。
+
+```sh
+$  eza --tree
+.
+├── a.out
+├── about.html
+├── blog
+│   └── 2025-7-20.html
+├── index.html
+└── main.c
+$ gcc main.c
+$ ./a.out 3000
+open http://nixos:3000/index.html
+[125919] accepting (fd==3) to [::]:3000
+[125919] accepting incoming connections (fd==3) ...
+[125919] connection (fd==4) from [::1]:56418
+requestline is [GET /index.html HTTP/1.1]
+Ignored: Host: localhost:3000
+Ignored: User-Agent: curl/8.14.1
+Ignored: Accept: */*
+[125919] Replied
+[125919] accepting incoming connections (fd==3) ...
+[125919] connection (fd==4) from [::1]:54242
+requestline is [GET /about.html HTTP/1.1]
+Ignored: Host: localhost:3000
+Ignored: User-Agent: curl/8.14.1
+Ignored: Accept: */*
+[125919] Replied
+[125919] accepting incoming connections (fd==3) ...
+[125919] connection (fd==4) from [::1]:56348
+requestline is [GET /blog/2025-7-20.html HTTP/1.1]
+Ignored: Host: localhost:3000
+Ignored: User-Agent: curl/8.14.1
+Ignored: Accept: */*
+[125919] Replied
+[125919] accepting incoming connections (fd==3) ...
+[125919] connection (fd==4) from [::1]:41988
+requestline is [GET / HTTP/1.1]
+Ignored: Host: localhost:3000
+Ignored: User-Agent: curl/8.14.1
+Ignored: Accept: */*
+[125919] Replied
+[125919] accepting incoming connections (fd==3) ...
+[125919] connection (fd==4) from [::1]:57904
+requestline is [GET /hello.html HTTP/1.1]
+Ignored: Host: localhost:3000
+Ignored: User-Agent: curl/8.14.1
+Ignored: Accept: */*
+file not found: .//hello.html
+[125919] Replied
+[125919] accepting incoming connections (fd==3) ...
+```
+
+- client想定
+
+curlを使って、HTTPサーバにリクエストを送り、
+レスポンスを確認した。
+
+```sh
+$ curl http://localhost:3000/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Hello, from index.html!</h1>
+    <p>This is the main page.</p>
+  </body>
+</html>
+$ curl http://localhost:3000/about.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About</title>
+  </head>
+  <body>
+    <h1>Hello, from about.html!</h1>
+    <p>This is the about page.</p>
+  </body>
+</html>
+$ curl http://localhost:3000/blog/2025-7-20.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog</title>
+  </head>
+  <body>
+    <h1>Hello, from 2025-7-20.html!</h1>
+    <p>This page is a blog post sample.</p>
+  </body>
+</html>
+$ curl http://localhost:3000/
+<html><head></head><body>400 Bad Request</body></html>
+$ curl http://localhost:3000/hello.html
+<html><head></head><body>404 Not Found</body></html>
+```
+
+[練習問題706 考察]
+今回の練習問題では、HTTPサーバを作成し、
+.htmlのファイルのみを受け付けるようにした。
+HTTPリクエストの処理を行う際に、リクエストラインの検証を行い、
+不正なリクエストに対しては400 Bad Requestを返すようにした。
+また、存在しないファイルに対しては404 Not Foundを返すようにした。
+実行結果を確認する限り、正しく動作しているようである。
+
+[練習問題706 プログラム]
+
+基本的には、http-server.cを流用する形で作成した。
+ただし、主に課題(704)と課題(705)の内容に該当する処理を
+課題(704)と課題(705)の内容に一部置き変えている。
+また、課題(704)と課題(705)に元々用意されていた関数も
+main.cに追加している。
+
+- 課題(704)の内容を一部修正して利用した部分
+
+課題(704)に元々用意されていた関数は、省略している。
+
+```c
+// 課題(704)を一部修正して利用
+int http_receive_request(FILE *in, char *filename, size_t size) {
+    char requestline[BUFFERSIZE];
+    char rheader[BUFFERSIZE];
+
+    if (fgets(requestline, BUFFERSIZE, in) <= 0) {
+        printf("No request line.\n");
+        return (0);
+    }
+
+    // validation of requestline
+    // 1. if the requestline contains '<' or '..', it's dangerous
+    if (strchr(requestline, '<') || strstr(requestline, "..")) {
+        fprintf(stderr, "Dangerous request line found.\n");
+        return (0);
+    }
+    // 2. split the requestline
+    int count;
+    char **vec;
+    chomp(requestline); /* remove \r\n */
+    if (string_split(requestline, ' ', &count, &vec) < 0) {
+        perror("string_split-malloc");
+        exit(1);
+    }
+    // 3. if the count is not 3, it's a bad request
+    if (count != 3) {
+        fprintf(stderr, "Expected 3 parts, got %d.\n", count);
+        free_string_vector(count, vec);
+        return (0);
+    }
+    // 4. if the first part is not "GET", it's a bad request
+    if (strcmp(vec[0], "GET") != 0) {
+        fprintf(stderr, "Expected 'GET', got '%s'.\n", vec[0]);
+        free_string_vector(count, vec);
+        return (0);
+    }
+    // 5. if the last part is not "HTTP/1.0" or "HTTP/1.1", it's a bad request
+    if (strcmp(vec[2], "HTTP/1.0") != 0 && strcmp(vec[2], "HTTP/1.1") != 0) {
+        fprintf(stderr, "Expected 'HTTP/1.0' or 'HTTP/1.1', got '%s'.\n",
+                vec[2]);
+        // free
+        free_string_vector(count, vec);
+        return (0);
+    }
+
+    printf("requestline is [%s]\n", requestline);
+    while (fgets(rheader, BUFFERSIZE, in)) {
+        chomp(rheader); /* remove \r\n */
+        if (strcmp(rheader, "") == 0) break;
+        printf("Ignored: %s\n", rheader);
+    }
+    if (strchr(requestline, '<') || strstr(requestline, "..")) {
+        printf("Dangerous request line found.\n");
+        return (0);
+    }課題(704)に元々用意されていた関数は、省略している。
+    // 6. copy the second part to filename
+    snprintf(filename, size, "%s", vec[1]);
+    // 7. free
+    free_string_vector(count, vec);
+    // 8. return 1 to indicate success
+    return (1);
+}
+```
+
+- 課題(705)の内容を一部修正して利用した部分
+
+課題(705)に元々用意されていた関数は、省略している。
+
+```c
+// 課題(705)を一部修正して利用
+void http_send_reply(FILE *out, char *filename) {
+    char *ext;
+
+    ext = strrchr(filename, '.');
+    if (ext == NULL) {
+        http_send_reply_bad_request(out);
+        return;
+    } else if (strcmp(ext, ".html") == 0) {
+        int BUFFER_SIZE = 1024;
+        char file_path[BUFFER_SIZE];
+        char body[BUFFER_SIZE];
+
+        // 4. create file path
+        int file_path_length =
+            snprintf(file_path, BUFFER_SIZE, "./%s", filename);
+        if (file_path_length >= BUFFER_SIZE) {
+            printf("file path too long: %s\n", file_path);
+            http_send_reply_bad_request(out);
+            return;
+        }
+
+        // 5. open file
+        FILE *file;
+        file = fopen(file_path, "r");
+        if (file == NULL) {
+            printf("file not found: %s\n", file_path);
+            http_send_reply_not_found(out);
+            return;
+        }
+
+        // 6~8. out file content
+        fprintf(out, "HTTP/1.0 200 OK\r\n");
+        fprintf(out, "Content-Type: text/html\r\n");
+        fprintf(out, "\r\n");
+        // 9. read file and write to out
+        while (fgets(body, BUFFER_SIZE, file)) {
+            if (strcmp(body, "") == 0) break;
+            fprintf(out, "%s", body);
+        }
+        // 10. close file
+        fclose(file);
+
+        return;
+    } else {
+        http_send_reply_bad_request(out);
+        return;
+    }
+}
+```
+
+- main.c
+
+以下がmain.cの全体のコードである。
+
+上記の変更以外にも、いくつかのささいな変更をしているが、
+あまり本質とは関係ないので、説明を省略する。
+
+```c
+
+/*
+  http-server-.c -- 常に同じ内容を返す HTTP サーバ(forkなし版)
+  ~yas/syspro/ipc/http-server.c
+*/
+#include <netdb.h>      /* getnameinfo() */
+#include <netinet/in.h> /* struct sockaddr_in */
+#include <stdio.h>
+#include <stdlib.h>       /* exit() */
+#include <string.h>       /* strlen() */
+#include <sys/resource.h> /* wait4() */
+#include <sys/socket.h>   /* socket() */
+#include <sys/types.h>    /* socket(), wait4() */
+#include <sys/wait.h>     /* wait4() */
+#include <unistd.h>       /* getpid(), gethostname() */
+
+extern void http_server(int portno, int ip_version);
+extern void http_receive_request_and_send_reply(int com);
+extern int http_receive_request(FILE *in, char *filename, size_t size);
+extern void http_send_reply(FILE *out, char *filename);
+extern void http_send_reply_bad_request(FILE *out);
+extern void http_send_reply_not_found(FILE *out);
+extern void print_my_host_port_http(int portno);
+extern char *chomp(char *str);
+extern void tcp_sockaddr_print(int com);
+extern void tcp_peeraddr_print(int com);
+extern void sockaddr_print(struct sockaddr *addrp, socklen_t addr_len);
+extern int tcp_acc_port(int portno, int ip_version);
+extern int fdopen_sock(int sock, FILE **inp, FILE **outp);
+extern int string_split(char *str, char del, int *countp, char ***vecp);
+extern void free_string_vector(int qc, char **vec);
+extern int countchr(char *s, char c);
+
+int main(int argc, char *argv[]) {
+    int portno, ip_version;
+
+    if (!(argc == 2 || argc == 3)) {
+        fprintf(stderr, "Usage: %s portno {ipversion}\n", argv[0]);
+        exit(1);
+    }
+    portno = strtol(argv[1], 0, 10);
+    if (argc == 3)
+        ip_version = strtol(argv[2], 0, 10);
+    else
+        ip_version = 46; /* Both IPv4 and IPv6 by default */
+    http_server(portno, ip_version);
+}
+
+void http_server(int portno, int ip_version) {
+    int acc, com;
+
+    acc = tcp_acc_port(portno, ip_version);
+    if (acc < 0) exit(-1);
+    print_my_host_port_http(portno);
+    tcp_sockaddr_print(acc);
+    while (1) {
+        printf("[%d] accepting incoming connections (fd==%d) ...\n", getpid(),
+               acc);
+        if ((com = accept(acc, 0, 0)) < 0) {
+            perror("accept");
+            exit(-1);
+        }
+        tcp_peeraddr_print(com);
+        http_receive_request_and_send_reply(com);
+    }
+}
+
+#define BUFFERSIZE 1024
+
+void http_receive_request_and_send_reply(int com) {
+    FILE *in, *out;
+    char filename[BUFFERSIZE];
+
+    if (fdopen_sock(com, &in, &out) < 0) {
+        perror("fdooen()");
+        exit(-1);
+    }
+    if (http_receive_request(in, filename, BUFFERSIZE)) {
+        http_send_reply(out, filename);
+    } else {
+        http_send_reply_bad_request(out);
+    }
+    printf("[%d] Replied\n", getpid());
+    fclose(in);
+    fclose(out);
+}
+
+// 課題(704)を一部修正して利用
+int http_receive_request(FILE *in, char *filename, size_t size) {
+    char requestline[BUFFERSIZE];
+    char rheader[BUFFERSIZE];
+
+    if (fgets(requestline, BUFFERSIZE, in) <= 0) {
+        printf("No request line.\n");
+        return (0);
+    }
+
+    // validation of requestline
+    // 1. if the requestline contains '<' or '..', it's dangerous
+    if (strchr(requestline, '<') || strstr(requestline, "..")) {
+        fprintf(stderr, "Dangerous request line found.\n");
+        return (0);
+    }
+    // 2. split the requestline
+    int count;
+    char **vec;
+    chomp(requestline); /* remove \r\n */
+    if (string_split(requestline, ' ', &count, &vec) < 0) {
+        perror("string_split-malloc");
+        exit(1);
+    }
+    // 3. if the count is not 3, it's a bad request
+    if (count != 3) {
+        fprintf(stderr, "Expected 3 parts, got %d.\n", count);
+        free_string_vector(count, vec);
+        return (0);
+    }
+    // 4. if the first part is not "GET", it's a bad request
+    if (strcmp(vec[0], "GET") != 0) {
+        fprintf(stderr, "Expected 'GET', got '%s'.\n", vec[0]);
+        free_string_vector(count, vec);
+        return (0);
+    }
+    // 5. if the last part is not "HTTP/1.0" or "HTTP/1.1", it's a bad request
+    if (strcmp(vec[2], "HTTP/1.0") != 0 && strcmp(vec[2], "HTTP/1.1") != 0) {
+        fprintf(stderr, "Expected 'HTTP/1.0' or 'HTTP/1.1', got '%s'.\n",
+                vec[2]);
+        // free
+        free_string_vector(count, vec);
+        return (0);
+    }
+
+    printf("requestline is [%s]\n", requestline);
+    while (fgets(rheader, BUFFERSIZE, in)) {
+        chomp(rheader); /* remove \r\n */
+        if (strcmp(rheader, "") == 0) break;
+        printf("Ignored: %s\n", rheader);
+    }
+    if (strchr(requestline, '<') || strstr(requestline, "..")) {
+        printf("Dangerous request line found.\n");
+        return (0);
+    }
+    // 6. copy the second part to filename
+    snprintf(filename, size, "%s", vec[1]);
+    // 7. free
+    free_string_vector(count, vec);
+    // 8. return 1 to indicate success
+    return (1);
+}
+
+// 課題(705)を一部修正して利用
+void http_send_reply(FILE *out, char *filename) {
+    char *ext;
+
+    ext = strrchr(filename, '.');
+    if (ext == NULL) {
+        http_send_reply_bad_request(out);
+        return;
+    } else if (strcmp(ext, ".html") == 0) {
+        int BUFFER_SIZE = 1024;
+        char file_path[BUFFER_SIZE];
+        char body[BUFFER_SIZE];
+
+        // 4. create file path
+        int file_path_length =
+            snprintf(file_path, BUFFER_SIZE, "./%s", filename);
+        if (file_path_length >= BUFFER_SIZE) {
+            printf("file path too long: %s\n", file_path);
+            http_send_reply_bad_request(out);
+            return;
+        }
+
+        // 5. open file
+        FILE *file;
+        file = fopen(file_path, "r");
+        if (file == NULL) {
+            printf("file not found: %s\n", file_path);
+            http_send_reply_not_found(out);
+            return;
+        }
+
+        // 6~8. out file content
+        fprintf(out, "HTTP/1.0 200 OK\r\n");
+        fprintf(out, "Content-Type: text/html\r\n");
+        fprintf(out, "\r\n");
+        // 9. read file and write to out
+        while (fgets(body, BUFFER_SIZE, file)) {
+            if (strcmp(body, "") == 0) break;
+            fprintf(out, "%s", body);
+        }
+        // 10. close file
+        fclose(file);
+
+        return;
+    } else {
+        http_send_reply_bad_request(out);
+        return;
+    }
+}
+
+void http_send_reply_bad_request(FILE *out) {
+    fprintf(out, "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html\r\n\r\n");
+    fprintf(out, "<html><head></head><body>400 Bad Request</body></html>\n");
+}
+
+void http_send_reply_not_found(FILE *out) {
+    fprintf(out, "HTTP/1.0 404 Not Found\r\nContent-Type: text/html\r\n\r\n");
+    fprintf(out, "<html><head></head><body>404 Not Found</body></html>\n");
+}
+
+//* utility functions for string manipulation *//
+int string_split(char *str, char del, int *countp, char ***vecp) {
+    char **vec;
+    int count_max, i, len;
+    char *s, *p;
+
+    if (str == 0) return (-1);
+    count_max = countchr(str, del) + 1;
+    vec = malloc(sizeof(char *) * (count_max + 1));
+    if (vec == 0) return (-1);
+
+    for (i = 0; i < count_max; i++) {
+        while (*str == del) str++;
+        if (*str == 0) break;
+        for (p = str; *p != del && *p != 0; p++) continue;
+        /* *p == del || *p=='\0' */
+        len = p - str;
+        s = malloc(len + 1);
+        if (s == 0) {
+            int j;
+            for (j = 0; j < i; j++) {
+                free(vec[j]);
+                vec[j] = 0;
+            }
+            free(vec);
+            return (-1);
+        }
+        memcpy(s, str, len);
+        s[len] = 0;
+        vec[i] = s;
+        str = p;
+    }
+    vec[i] = 0;
+    *countp = i;
+    *vecp = vec;
+    return (i);
+}
+
+void free_string_vector(int qc, char **vec) {
+    int i;
+    for (i = 0; i < qc; i++) {
+        if (vec[i] == NULL) break;
+        free(vec[i]);
+    }
+    free(vec);
+}
+
+int countchr(char *s, char c) {
+    int count;
+    for (count = 0; *s; s++)
+        if (*s == c) count++;
+    return (count);
+}
+
+//* utility functions for TCP/IP server *//
+#define HOST_NAME_MAX 256
+void print_my_host_port_http(int portno) {
+    char hostname[HOST_NAME_MAX + 1];
+
+    gethostname(hostname, HOST_NAME_MAX);
+    hostname[HOST_NAME_MAX] = 0;
+    printf("open http://%s:%d/index.html\n", hostname, portno);
+}
+
+char *chomp(char *str) {
+    int len;
+
+    len = strlen(str);
+    if (len >= 2 && str[len - 2] == '\r' && str[len - 1] == '\n') {
+        str[len - 2] = str[len - 1] = 0;
+    } else if (len >= 1 && (str[len - 1] == '\r' || str[len - 1] == '\n')) {
+        str[len - 1] = 0;
+    }
+    return (str);
+}
+
+void tcp_sockaddr_print(int com) {
+    struct sockaddr_storage addr;
+    socklen_t addr_len; /* macOS: __uint32_t, Linux: unsigned int */
+
+    addr_len = sizeof(addr);
+    if (getsockname(com, (struct sockaddr *)&addr, &addr_len) < 0) {
+        perror("tcp_peeraddr_print");
+        return;
+    }
+    printf("[%d] accepting (fd==%d) to ", getpid(), com);
+    sockaddr_print((struct sockaddr *)&addr, addr_len);
+    printf("\n");
+}
+
+void tcp_peeraddr_print(int com) {
+    struct sockaddr_storage addr;
+    socklen_t addr_len; /* macOS: __uint32_t, Linux: unsigned int */
+
+    addr_len = sizeof(addr);
+    if (getpeername(com, (struct sockaddr *)&addr, &addr_len) < 0) {
+        perror("tcp_peeraddr_print");
+        return;
+    }
+    printf("[%d] connection (fd==%d) from ", getpid(), com);
+    sockaddr_print((struct sockaddr *)&addr, addr_len);
+    printf("\n");
+}
+
+void sockaddr_print(struct sockaddr *addrp, socklen_t addr_len) {
+    char host[BUFFERSIZE];
+    char port[BUFFERSIZE];
+
+    if (getnameinfo(addrp, addr_len, host, sizeof(host), port, sizeof(port),
+                    NI_NUMERICHOST | NI_NUMERICSERV) < 0)
+        return;
+    if (addrp->sa_family == PF_INET)
+        printf("%s:%s", host, port);
+    else
+        printf("[%s]:%s", host, port);
+}
+
+#define PORTNO_BUFSIZE 30
+
+int tcp_acc_port(int portno, int ip_version) {
+    struct addrinfo hints, *ai;
+    char portno_str[PORTNO_BUFSIZE];
+    int err, s, on, pf;
+
+    switch (ip_version) {
+        case 4:
+            pf = PF_INET;
+            break;
+        case 6:
+#if !defined(IPV6_V6ONLY)
+            fprintf(stderr,
+                    "Sorry, IPV6_V6ONLY is not supported in this system.\n");
+            goto error0;
+#endif /*IPV6_V6ONLY*/
+            pf = PF_INET6;
+            break;
+        case 0:
+        case 46:
+        case 64:
+            pf = PF_INET6; /* pf = 0; in macOS */
+            break;
+        default:
+            fprintf(stderr, "bad IP version: %d.  4 or 6 is allowed.\n",
+                    ip_version);
+            goto error0;
+    }
+    snprintf(portno_str, sizeof(portno_str), "%d", portno);
+    memset(&hints, 0, sizeof(hints));
+    ai = NULL;
+    hints.ai_family = pf;
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_socktype = SOCK_STREAM;
+    if ((err = getaddrinfo(NULL, portno_str, &hints, &ai))) {
+        fprintf(stderr, "bad portno %d? (%s)\n", portno, gai_strerror(err));
+        goto error0;
+    }
+    if ((s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol)) < 0) {
+        perror("socket");
+        goto error1;
+    }
+
+#ifdef IPV6_V6ONLY
+    if (ai->ai_family == PF_INET6 && ip_version == 6) {
+        on = 1;
+        if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) < 0) {
+            perror("setsockopt(,,IPV6_V6ONLY)");
+            goto error1;
+        }
+    }
+#endif /*IPV6_V6ONLY*/
+
+    if (bind(s, ai->ai_addr, ai->ai_addrlen) < 0) {
+        perror("bind");
+        fprintf(stderr, "Port number %d\n", portno);
+        goto error2;
+    }
+    on = 1;
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+        perror("setsockopt(,,SO_REUSEADDR)");
+        goto error2;
+    }
+    if (listen(s, 5) < 0) {
+        perror("listen");
+        goto error2;
+    }
+    freeaddrinfo(ai);
+    return (s);
+
+error2:
+    close(s);
+error1:
+    freeaddrinfo(ai);
+error0:
+    return (-1);
+}
+
+int fdopen_sock(int sock, FILE **inp, FILE **outp) {
+    int sock2;
+
+    if ((sock2 = dup(sock)) < 0) {
+        return (-1);
+    }
+    if ((*inp = fdopen(sock2, "r")) == NULL) {
+        close(sock2);
+        return (-1);
+    }
+    if ((*outp = fdopen(sock, "w")) == NULL) {
+        fclose(*inp);
+        *inp = 0;
+        return (-1);
+    }
+    setvbuf(*outp, (char *)NULL, _IONBF, 0);
+    return (0);
+}
+
+```
+
+---

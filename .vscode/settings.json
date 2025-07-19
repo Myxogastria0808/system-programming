@@ -2,7 +2,9 @@
     "cSpell.words": [
         "inetutils",
         "TSUKUB",
-        "TSUKUBA"
+        "TSUKUBA",
+        "countchr",
+        "rheader"
     ],
     "files.associations": {
         "stdio.h": "c"
