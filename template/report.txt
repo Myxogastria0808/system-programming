@@ -2,7 +2,7 @@
 
 学籍番号: 202310330
 名前: 長田 悠生
-課題番号：XXX
+課題番号：X
 練習問題番号：XXX
 題名：XXX
 
@@ -10,11 +10,9 @@
 OSの環境等は以下の通りである。
 
 OS: NixOS 25.05 (Warbler) x86_64
-gcc version: 14.2.1 20250322
+gcc version: 14.3.0
 
 以下のflake.nixの環境で課題に取り組んだ。
-今回は、telnetを利用するために、`inetutils`を
-flake.nixに追加している。
 
 ```nix
 {
@@ -36,7 +34,6 @@ flake.nixに追加している。
           packages = with pkgs; [
             gcc
             gnumake
-            inetutils
           ];
         };
       }
