@@ -15,8 +15,13 @@
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
+            # C
             gcc
-            gnumake
+            # python
+            python312
+            python312Packages.legacy-cgi
+            python312Packages.bleach
+            python312Packages.mypy
           ];
         };
       }

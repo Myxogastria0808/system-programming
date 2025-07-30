@@ -1,6 +1,9 @@
 {
     "cSpell.words": [
+        "byteorder",
         "countchr",
+        "filterwarnings",
+        "getfirst",
         "inetutils",
         "opval",
         "rheader",

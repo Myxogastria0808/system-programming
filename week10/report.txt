@@ -3,14 +3,14 @@
 学籍番号: 202310330
 名前: 長田 悠生
 課題番号：10
-練習問題番号：XXX
+練習問題番号：1009
 題名：Web CGI プログラミング(2)
 
 [環境]
 OSの環境等は以下の通りである。
 
 OS: NixOS 25.05 (Warbler) x86_64
-gcc version: 14.3.0
+python version: 3.12.11
 
 以下のflake.nixの環境で課題に取り組んだ。
 
@@ -32,21 +32,270 @@ gcc version: 14.3.0
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
+            # C
             gcc
-            gnumake
+            # python
+            python312
+            python312Packages.legacy-cgi
+            python312Packages.bleach
+            python312Packages.mypy
           ];
         };
       }
     );
 }
+
 ```
 
-[練習問題XXX 概要]
+[練習問題1009 概要]
+CGIを想定したカウンターの実装を行う。
+`op`と`val`の2つのパラメータを受け取り、
+`op`が`inc`の場合はカウンターを1増加させ、
+`set`の場合は`val`の値をカウンターに設定する。
 
-[練習問題XXX 実行結果]
 
-[練習問題XXX 考察]
+[練習問題1009 実行結果]
+環境変数に正常な値を設定した場合は、
+期待通りのカウンターの値が出力されることがわかる。
+環境変数に不正な値を設定した場合は、
+期待したエラーが出力されていることがわかる。
 
-[練習問題XXX プログラム]
+```sh
+$ export REQUEST_METHOD=GET
+$ export QUERY_STRING='op=set&val=0'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+0
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=inc'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+1
+</PRE></BODY></HTML>
+
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+2
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=none'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+Error: Invalid operation.
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=set'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+Error: Invalid value for 'set' operation.
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=set&val='
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+Error: Invalid value for 'set' operation.
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=set&val=abc'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+Error: Invalid value for 'set' operation.
+</PRE></BODY></HTML>
+
+$ export QUERY_STRING='op=set&val=100xxx'
+$ ./main.py
+Content-Type: text/html
+
+<HTML><HEAD></HEAD><BODY><PRE>
+Error: Invalid value for 'set' operation.
+</PRE></BODY></HTML>
+
+```
+
+[練習問題1009 mypyによる型チェック]
+mypyによる型チェックを行った結果は以下の通りである。
+型チェックは成功し、問題は見つからなかった。
+
+```sh
+$ mypy main.py
+Success: no issues found in 1 source file
+
+```
+
+[練習問題1009 考察]
+この課題では、CGIを想定したカウンターの実装を行った。
+`op`と`val`の2つのパラメータを受け取り、
+`op`が`inc`の場合はカウンターを1増加させ、
+`set`の場合は`val`の値をカウンターに設定する。
+`op`が不正な値の場合はエラーを出力する。
+`op`に`set`が設定されている場合は、
+`val`が空でないことを確認し、空の場合はエラーを出力する。
+`val`が不正な値の場合は、エラーを出力する。
+これらの動作が正常に行えていることを出力結果より確認した。
+
+[練習問題1009 プログラム]
+`cgi-arg1arg2-python.txt`の一部を変更している。
+主要な変更点は以下の通りである。
+
+- `def counter_load() -> int` と`def counter_save(counter: int) -> None`
+
+これらの関数は、`file-counter-python.txt`にあった関数を流用及び変更している。
+
+```python
+def counter_load() -> int:
+    counter: int = 0
+    try:
+        with open(DATA_FILENAME, "rb") as f:
+            counter_bytes: bytes = f.read(4)
+            counter = int.from_bytes(counter_bytes, byteorder=sys.byteorder)
+    except FileNotFoundError:
+        pass
+    return counter
+
+def counter_save(counter: int) -> None:
+    counter_bytes: bytes = counter.to_bytes(4, byteorder=sys.byteorder)
+    with open(DATA_FILENAME, "wb") as f:
+        f.write(counter_bytes)
+    return None
+```
+
+- 大きな変更箇所
+
+以下の大きな変更箇所では、`op`の値に応じて、カウンターを増加させたり、設定したりする。
+`op`が`inc`の場合はカウンターを1増加させ、
+`set`の場合は`val`の値をカウンターに設定する。
+`op`が不正な値の場合はエラーを出力する。
+また、`op`に`set`が設定されている場合は、
+`val`が空でないことを確認し、空の場合はエラーを出力する。
+`val`が不正な値の場合は、エラーを出力する。
+
+```python
+def print_content() -> None:
+    counter: int = 0
+    print("<HTML><HEAD></HEAD><BODY><PRE>",flush=True)
+    qh: cgi.FieldStorage = cgi.FieldStorage(keep_blank_values=True)
+    op: str | None = qh.getfirst("op",None)
+    val: str | None = qh.getfirst("val", None)
+    if op == "inc":
+        counter = counter_load()
+        counter += 1
+        counter_save(counter)
+        print(f"{counter}", flush=True)
+    elif op == "set":
+        if val is not None and is_int(val):
+            counter = int(val, 10)
+            counter_save(counter)
+            print(f"{counter}", flush=True)
+        else:
+            print("Error: Invalid value for 'set' operation.", flush=True)
+    else:
+        print("Error: Invalid operation.", flush=True)
+    print("</PRE></BODY></HTML>\n", flush=True)
+    return None
+```
+
+- 自作関数
+
+valの値が整数であるかを確認するための関数`is_int(s: str) -> bool`を定義している。
+
+```python
+def is_int(s: str) -> bool:
+    try:
+        int(s, 10)
+    except ValueError:
+        return False
+    return True
+```
+
+- main.py
+
+以下が`main.py`の全体のコードである。
+
+上記の変更以外にも、いくつかのささいな変更をしているが、
+あまり本質とは関係ないので、説明を省略する。
+
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+import cgi
+
+DATA_FILENAME = "file-counter-value.data"
+
+def main() -> None:
+    print_header()
+    print_content()
+
+def print_header() -> None:
+    print("Content-Type: text/html\n", flush=True)
+    return None
+
+def print_content() -> None:
+    counter: int = 0
+    print("<HTML><HEAD></HEAD><BODY><PRE>",flush=True)
+    qh: cgi.FieldStorage = cgi.FieldStorage(keep_blank_values=True)
+    op: str | None = qh.getfirst("op",None)
+    val: str | None = qh.getfirst("val", None)
+    if op == "inc":
+        counter = counter_load()
+        counter += 1
+        counter_save(counter)
+        print(f"{counter}", flush=True)
+    elif op == "set":
+        if val is not None and is_int(val):
+            counter = int(val, 10)
+            counter_save(counter)
+            print(f"{counter}", flush=True)
+        else:
+            print("Error: Invalid value for 'set' operation.", flush=True)
+    else:
+        print("Error: Invalid operation.", flush=True)
+    print("</PRE></BODY></HTML>\n", flush=True)
+    return None
+
+def is_int(s: str) -> bool:
+    try:
+        int(s, 10)
+    except ValueError:
+        return False
+    return True
+
+def counter_load() -> int:
+    counter: int = 0
+    try:
+        with open(DATA_FILENAME, "rb") as f:
+            counter_bytes: bytes = f.read(4)
+            counter = int.from_bytes(counter_bytes, byteorder=sys.byteorder)
+    except FileNotFoundError:
+        pass
+    return counter
+
+def counter_save(counter: int) -> None:
+    counter_bytes: bytes = counter.to_bytes(4, byteorder=sys.byteorder)
+    with open(DATA_FILENAME, "wb") as f:
+        f.write(counter_bytes)
+    return None
+
+if __name__ == "__main__":
+    main()
+
+```
 
 ---
